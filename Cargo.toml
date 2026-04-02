@@ -1,0 +1,17 @@
+
+[workspace]
+resolver = "2"
+members = ["crates/fabrica"]
+
+[workspace.package]
+publish = false
+edition = "2024"
+
+[workspace.dependencies]
+fabrica = { path = "crates/fabrica" }
+
+gpui = "0.2.2"
+gpui-component = "0.5.1"
+
+[workspace.lints.rust]
+# unexpected_cfgs = { level = "allow" }

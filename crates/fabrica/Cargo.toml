@@ -1,0 +1,18 @@
+
+[package]
+name = "fabrica"
+version = "0.1.0"
+edition = "2024"
+publish.workspace = true
+license = "MIT"
+
+[[bin]]
+name = "fabrica"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+gpui.workspace = true
+gpui-component.workspace = true
