@@ -1,7 +1,9 @@
 use gpui::{
-    AppContext, Application, Bounds, ParentElement, Render, SharedString, Styled, WindowBounds,
-    WindowOptions, div, px, rgb, size,
+    AppContext, Application, ParentElement, Render, SharedString, Styled, WindowOptions, div, px,
+    rgb,
 };
+use gpui_component_assets::Assets;
+use ui::Root;
 
 struct Fabrica(SharedString);
 
@@ -29,15 +31,16 @@ impl Render for Fabrica {
 }
 
 fn main() {
-    Application::new().run(|cx| {
-        let bounds = Bounds::centered(None, size(px(500.00), px(500.00)), cx);
-        cx.open_window(
-            WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(bounds)),
-                ..Default::default()
-            },
-            |_, cx| cx.new(|_| Fabrica("Fabrica".into())),
-        )
-        .unwrap();
+    Application::new().with_assets(Assets).run(move |cx| {
+        ui::init(cx);
+
+        cx.spawn(async move |cx| {
+            cx.open_window(WindowOptions::default(), |window, cx| {
+                let view = cx.new(|_| Fabrica("Fabrica".into()));
+                cx.new(|cx| Root::new(view, window, cx))
+            })
+            .expect("Failed to open window")
+        })
+        .detach();
     })
 }
