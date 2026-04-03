@@ -1,7 +1,6 @@
 mod app;
 mod layout;
-mod panels;
-mod session_dock;
+pub(crate) mod panels;
 
 use gpui::{AppContext, Application, WindowOptions};
 use gpui_component_assets::Assets;

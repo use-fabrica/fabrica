@@ -1,7 +1,7 @@
 use gpui::*;
 use ui::dock::{Panel, PanelEvent};
 
-pub struct TestPanel {
+pub(crate) struct TestPanel {
     name: SharedString,
     focus_handle: FocusHandle,
 }
