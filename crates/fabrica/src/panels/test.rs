@@ -17,12 +17,13 @@ impl TestPanel {
 }
 
 impl Render for TestPanel {
-    fn render(
-        &mut self,
-        _window: &mut gpui::Window,
-        _cx: &mut gpui::Context<Self>,
-    ) -> impl gpui::IntoElement {
-        div().id("test-panel").text_center().text_xl().child("test")
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .id("test-panel")
+            .size_full()
+            .text_center()
+            .text_xl()
+            .child("test")
     }
 }
 
