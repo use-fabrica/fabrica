@@ -13,6 +13,9 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
+anyhow.workspace = true
 gpui.workspace = true
-ui.workspace = true
 gpui-component-assets.workspace = true
+ui.workspace = true
+serde.workspace = true
+serde_json.workspace = true

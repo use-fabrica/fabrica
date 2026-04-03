@@ -1594,8 +1594,11 @@ dependencies = [
 name = "fabrica"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "gpui",
  "gpui-component-assets",
+ "serde",
+ "serde_json",
  "ui",
 ]
 
