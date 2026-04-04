@@ -1,14 +1,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::recent_projects_list::RecentProject;
+use crate::time_utils::now_iso;
 use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub(crate) struct RecentProject {
-    pub path: PathBuf,
-    pub last_opened: String,
-}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct RecentProjectsFile {
@@ -94,7 +89,7 @@ impl RecentProjects {
             0,
             RecentProject {
                 path: path.clone(),
-                last_opened: current_iso_timestamp(),
+                last_opened: now_iso(),
             },
         );
         self.projects.truncate(5);
@@ -110,123 +105,6 @@ impl RecentProjects {
         self.projects.retain(|p| p.path.exists() && p.path.is_dir());
         let _ = self.save();
     }
-}
-
-fn current_iso_timestamp() -> String {
-    let secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    let days = secs / 86400;
-    let time_of_day = secs % 86400;
-    let hours = time_of_day / 3600;
-    let minutes = (time_of_day % 3600) / 60;
-    let seconds = time_of_day % 60;
-
-    // Calculate year, month, day from days since epoch
-    let (year, month, day) = days_to_ymd(days);
-    format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-        year, month, day, hours, minutes, seconds
-    )
-}
-
-fn days_to_ymd(mut days: u64) -> (u64, u64, u64) {
-    let mut year = 1970u64;
-    loop {
-        let days_in_year = if is_leap(year) { 366 } else { 365 };
-        if days < days_in_year {
-            break;
-        }
-        days -= days_in_year;
-        year += 1;
-    }
-    let leap = is_leap(year);
-    let month_days: [u64; 12] = if leap {
-        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    } else {
-        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    };
-    let mut month = 0u64;
-    for (i, &md) in month_days.iter().enumerate() {
-        if days < md {
-            month = i as u64 + 1;
-            break;
-        }
-        days -= md;
-    }
-    (year, month, days + 1)
-}
-
-fn is_leap(year: u64) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
-}
-
-pub fn format_relative_time(last_opened: &str) -> String {
-    let ts_secs = match parse_iso_to_epoch(last_opened) {
-        Some(s) => s,
-        None => return "unknown".to_string(),
-    };
-    let now_secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    let diff = now_secs.saturating_sub(ts_secs);
-
-    if diff < 60 {
-        "just now".to_string()
-    } else if diff < 3600 {
-        format!("{}m ago", diff / 60)
-    } else if diff < 86400 {
-        format!("{}h ago", diff / 3600)
-    } else if diff < 2592000 {
-        format!("{}d ago", diff / 86400)
-    } else {
-        "long ago".to_string()
-    }
-}
-
-fn parse_iso_to_epoch(s: &str) -> Option<u64> {
-    if s.len() < 20 {
-        return None;
-    }
-    let year: u64 = s.get(0..4)?.parse().ok()?;
-    let month: u64 = s.get(5..7)?.parse().ok()?;
-    let day: u64 = s.get(8..10)?.parse().ok()?;
-    let hour: u64 = s.get(11..13)?.parse().ok()?;
-    let minute: u64 = s.get(14..16)?.parse().ok()?;
-    let second: u64 = s.get(17..19)?.parse().ok()?;
-
-    let mut days = 0u64;
-    for y in 1970..year {
-        days += if is_leap(y) { 366 } else { 365 };
-    }
-    let leap = is_leap(year);
-    let month_days: [u64; 12] = if leap {
-        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    } else {
-        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    };
-    for m in 0..(month.saturating_sub(1)) {
-        days += month_days.get(m as usize).copied().unwrap_or(0);
-    }
-    days += day.saturating_sub(1);
-
-    Some(days * 86400 + hour * 3600 + minute * 60 + second)
-}
-
-#[cfg(test)]
-fn epoch_to_iso(secs: u64) -> String {
-    let days = secs / 86400;
-    let time_of_day = secs % 86400;
-    let hours = time_of_day / 3600;
-    let minutes = (time_of_day % 3600) / 60;
-    let seconds = time_of_day % 60;
-    let (year, month, day) = days_to_ymd(days);
-    format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-        year, month, day, hours, minutes, seconds
-    )
 }
 
 #[cfg(test)]
@@ -458,25 +336,5 @@ mod tests {
         assert_eq!(rp.projects[0].path, real_dir);
 
         let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn test_format_relative_time() {
-        let now_secs = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        let ts_30s_ago = epoch_to_iso(now_secs - 30);
-        let result = format_relative_time(&ts_30s_ago);
-        assert!(result.contains("just now"), "got: {}", result);
-
-        let ts_2h_ago = epoch_to_iso(now_secs - 7200);
-        let result = format_relative_time(&ts_2h_ago);
-        assert!(result.contains("2h ago"), "got: {}", result);
-
-        let ts_1d_ago = epoch_to_iso(now_secs - 86400);
-        let result = format_relative_time(&ts_1d_ago);
-        assert!(result.contains("1d ago"), "got: {}", result);
     }
 }

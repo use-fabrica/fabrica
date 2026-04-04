@@ -1,0 +1,51 @@
+{
+  "active_plan": "/home/sudarsh/dev/use-fabrica/fabrica/.sisyphus/plans/recent-projects-refactor.md",
+  "started_at": "2026-04-04T12:56:41.885Z",
+  "session_ids": [
+    "ses_2a7932a48ffeiR31PM7k9CPVVE",
+    "ses_2a76d23d8ffe4UpdewYjYBC58X",
+    "ses_2a769cfc1ffeEXaB5pTxP58UyL",
+    "ses_2a7650ee1ffeUN44klAe3zaOED",
+    "ses_2a756b2e9ffeHeX7O3W87n2DMP"
+  ],
+  "plan_name": "recent-projects-refactor",
+  "agent": "atlas",
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "Add `time` crate to workspace dependencies",
+      "session_id": "ses_2a76d23d8ffe4UpdewYjYBC58X",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-04T12:59:36.584Z"
+    },
+    "todo:2": {
+      "task_key": "todo:2",
+      "task_label": "2",
+      "task_title": "Create `time_utils.rs` module with `time` crate",
+      "session_id": "ses_2a769cfc1ffeEXaB5pTxP58UyL",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-04T13:05:35.862Z"
+    },
+    "todo:3": {
+      "task_key": "todo:3",
+      "task_label": "3",
+      "task_title": "Delete time functions from `recent_projects.rs` and update module declarations",
+      "session_id": "ses_2a7650ee1ffeUN44klAe3zaOED",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-04T13:17:26.100Z"
+    },
+    "todo:4": {
+      "task_key": "todo:4",
+      "task_label": "4",
+      "task_title": "Create `recent_projects_list.rs` — pure in-memory business logic module",
+      "session_id": "ses_2a756b2e9ffeHeX7O3W87n2DMP",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-04T13:25:48.245Z"
+    }
+  }
+}

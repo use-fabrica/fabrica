@@ -3,6 +3,8 @@ pub(crate) mod dashboard;
 mod layout;
 pub(crate) mod panels;
 pub(crate) mod recent_projects;
+pub(crate) mod recent_projects_list;
+pub(crate) mod time_utils;
 
 use std::path::PathBuf;
 

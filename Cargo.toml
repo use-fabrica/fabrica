@@ -18,6 +18,15 @@ gpui-component-assets = "0.5.1"
 
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
+time = { version = "0.3", features = ["parsing", "formatting", "macros"] }
 
 [workspace.lints.rust]
 unexpected_cfgs = { level = "allow" }
+
+[profile.dev]
+debug = 1
+incremental = true
+codegen-units = 256
+
+[profile.dev.build-override]
+opt-level = 3

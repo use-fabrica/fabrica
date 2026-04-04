@@ -4,7 +4,8 @@ use gpui::*;
 use ui::tokens::Spacing;
 use ui::{ActiveTheme, Button, ButtonVariants, Styled, h_flex, v_flex};
 
-use crate::recent_projects::{RecentProjects, format_relative_time};
+use crate::recent_projects::RecentProjects;
+use crate::time_utils::format_relative_time;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum DashboardEvent {
