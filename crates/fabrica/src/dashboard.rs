@@ -1,60 +1,74 @@
+use std::path::PathBuf;
+
 use gpui::*;
 use ui::tokens::Spacing;
 use ui::{ActiveTheme, Button, ButtonVariants, Styled, h_flex, v_flex};
 
-use crate::app::Fabrica;
 use crate::recent_projects::{RecentProjects, format_relative_time};
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum DashboardEvent {
+    OpenProject { path: PathBuf },
+    DeleteRecent { path: PathBuf },
+    PickFolder,
+}
 
 pub(crate) struct Dashboard {
     focus_handle: FocusHandle,
     recent_projects: Entity<RecentProjects>,
-    fabrica: Option<WeakEntity<Fabrica>>,
     focused_index: Option<usize>,
 }
 
+impl EventEmitter<DashboardEvent> for Dashboard {}
+
 impl Dashboard {
-    pub(crate) fn new(
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-        recent_projects: Entity<RecentProjects>,
-    ) -> Self {
+    pub(crate) fn new(cx: &mut Context<Self>, recent_projects: Entity<RecentProjects>) -> Self {
         Self {
             focus_handle: cx.focus_handle(),
             recent_projects,
-            fabrica: None,
             focused_index: None,
         }
     }
 
-    pub(crate) fn set_fabrica(&mut self, fabrica: WeakEntity<Fabrica>) {
-        self.fabrica = Some(fabrica);
-    }
-
-    fn open_folder_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let rx = cx.prompt_for_paths(PathPromptOptions {
-            files: false,
-            directories: true,
-            multiple: false,
-            prompt: Some("Select Project Folder".into()),
-        });
-
-        cx.spawn_in(window, async move |this_weak, cx| {
-            if let Ok(Ok(Some(paths))) = rx.await
-                && let Some(path) = paths.first()
-            {
-                let path = path.clone();
-                let _ = cx.update(|window, cx| {
-                    let _ = this_weak.update(cx, |this, cx| {
-                        if let Some(fabrica) = this.fabrica.as_ref() {
-                            let _ = fabrica.update(cx, |fabrica, cx| {
-                                fabrica.open_project(path, window, cx);
-                            });
-                        }
-                    });
+    pub(crate) fn open_focused(&mut self, cx: &mut Context<Self>) {
+        if let Some(i) = self.focused_index {
+            let projects = self.recent_projects.read(cx);
+            if let Some(entry) = projects.projects.get(i) {
+                cx.emit(DashboardEvent::OpenProject {
+                    path: entry.path.clone(),
                 });
             }
-        })
-        .detach();
+        }
+    }
+
+    pub(crate) fn delete_focused(&mut self, cx: &mut Context<Self>) {
+        if let Some(i) = self.focused_index {
+            let path = self
+                .recent_projects
+                .read(cx)
+                .projects
+                .get(i)
+                .map(|p| p.path.clone());
+            if let Some(path) = path {
+                let new_len = self
+                    .recent_projects
+                    .read(cx)
+                    .projects
+                    .len()
+                    .saturating_sub(1);
+                if new_len == 0 {
+                    self.focused_index = None;
+                } else if i >= new_len {
+                    self.focused_index = Some(new_len - 1);
+                }
+                cx.emit(DashboardEvent::DeleteRecent { path });
+                cx.notify();
+            }
+        }
+    }
+
+    pub(crate) fn pick_folder(&mut self, cx: &mut Context<Self>) {
+        cx.emit(DashboardEvent::PickFolder);
     }
 
     fn render_left_column(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -105,13 +119,9 @@ impl Dashboard {
                     .py(Spacing::px_1())
                     .rounded(radius)
                     .cursor_pointer()
-                    .on_click(cx.listener(move |this, _event, window, cx| {
+                    .on_click(cx.listener(move |this, _event, _window, cx| {
                         let path = this.recent_projects.read(cx).projects[i].path.clone();
-                        if let Some(fabrica) = this.fabrica.as_ref() {
-                            let _ = fabrica.update(cx, |fabrica, cx| {
-                                fabrica.open_project(path, window, cx);
-                            });
-                        }
+                        cx.emit(DashboardEvent::OpenProject { path });
                     }))
                     .child(
                         div()
@@ -144,8 +154,8 @@ impl Dashboard {
                 .label("Open Project")
                 .primary()
                 .mt(Spacing::px_4())
-                .on_click(cx.listener(move |this, _event, window, cx| {
-                    this.open_folder_picker(window, cx);
+                .on_click(cx.listener(move |this, _event, _window, cx| {
+                    this.pick_folder(cx);
                 })),
         );
 
@@ -287,40 +297,13 @@ impl Render for Dashboard {
                         cx.notify();
                     }
                     "enter" => {
-                        if let Some(i) = this.focused_index {
-                            if i < len {
-                                let path = this.recent_projects.read(cx).projects[i].path.clone();
-                                if let Some(fabrica) = this.fabrica.as_ref() {
-                                    let _ = fabrica.update(cx, |fabrica, cx| {
-                                        fabrica.open_project(path, _window, cx);
-                                    });
-                                }
-                            }
-                        }
+                        this.open_focused(cx);
                     }
                     "o" if event.keystroke.modifiers.alt => {
-                        this.open_folder_picker(_window, cx);
+                        this.pick_folder(cx);
                     }
                     "delete" => {
-                        if let Some(i) = this.focused_index {
-                            let path = {
-                                let projects = this.recent_projects.read(cx);
-                                if i >= projects.projects.len() {
-                                    return;
-                                }
-                                projects.projects[i].path.clone()
-                            };
-                            this.recent_projects.update(cx, |rp, _| {
-                                rp.remove(&path);
-                            });
-                            let new_len = this.recent_projects.read(cx).projects.len();
-                            if new_len == 0 {
-                                this.focused_index = None;
-                            } else if i >= new_len {
-                                this.focused_index = Some(new_len - 1);
-                            }
-                            cx.notify();
-                        }
+                        this.delete_focused(cx);
                     }
                     _ => {}
                 }

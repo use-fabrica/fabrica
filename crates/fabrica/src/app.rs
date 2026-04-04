@@ -4,7 +4,7 @@ use gpui::*;
 use ui::Styled;
 use ui::dock::{DockArea, DockItem};
 
-use crate::dashboard::Dashboard;
+use crate::dashboard::{Dashboard, DashboardEvent};
 use crate::panels::test::TestPanel;
 use crate::recent_projects::RecentProjects;
 
@@ -13,6 +13,7 @@ pub(crate) struct Fabrica {
     dashboard: Entity<Dashboard>,
     recent_projects: Entity<RecentProjects>,
     project_open: bool,
+    _subscriptions: Vec<Subscription>,
 }
 
 impl Fabrica {
@@ -38,11 +39,34 @@ impl Fabrica {
             rp.prune();
             rp
         });
-        let dashboard = cx.new(|cx| Dashboard::new(window, cx, recent_projects.clone()));
+        let dashboard = cx.new(|cx| Dashboard::new(cx, recent_projects.clone()));
 
-        let fabrica_weak = cx.entity().downgrade();
-        dashboard.update(cx, |dashboard, _| {
-            dashboard.set_fabrica(fabrica_weak);
+        let subscription = cx.subscribe(&dashboard, |fabrica, _dashboard, event, cx| match event {
+            DashboardEvent::OpenProject { path } => {
+                fabrica.open_project(path.clone(), cx);
+            }
+            DashboardEvent::DeleteRecent { path } => {
+                fabrica.recent_projects.update(cx, |rp, _| rp.remove(path));
+            }
+            DashboardEvent::PickFolder => {
+                let rx = cx.prompt_for_paths(PathPromptOptions {
+                    files: false,
+                    directories: true,
+                    multiple: false,
+                    prompt: Some("Select Project Folder".into()),
+                });
+                cx.spawn(async move |this, cx| {
+                    if let Ok(Ok(Some(paths))) = rx.await
+                        && let Some(path) = paths.first()
+                    {
+                        let path = path.clone();
+                        let _ = this.update(cx, |fabrica, cx| {
+                            fabrica.open_project(path, cx);
+                        });
+                    }
+                })
+                .detach();
+            }
         });
 
         Self {
@@ -50,15 +74,11 @@ impl Fabrica {
             dashboard,
             recent_projects,
             project_open: false,
+            _subscriptions: vec![subscription],
         }
     }
 
-    pub(crate) fn open_project(
-        &mut self,
-        path: PathBuf,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    pub(crate) fn open_project(&mut self, path: PathBuf, cx: &mut Context<Self>) {
         if !path.exists() || !path.is_dir() {
             return;
         }
