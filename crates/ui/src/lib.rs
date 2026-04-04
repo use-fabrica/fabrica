@@ -45,4 +45,10 @@ mod tests {
         fn _progress(_: &Progress) {}
         fn _switch(_: &Switch) {}
     }
+
+    #[test]
+    fn dashboard_render_trait() {
+        fn _assert_render<T: gpui::Render>(_: &T) {}
+        // This verifies Dashboard implements Render at compile time
+    }
 }
