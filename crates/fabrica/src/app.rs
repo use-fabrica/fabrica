@@ -1,10 +1,12 @@
 use std::path::PathBuf;
 
 use gpui::*;
+use sqlx::SqlitePool;
 use ui::Styled;
 use ui::dock::{DockArea, DockItem};
 
 use crate::dashboard::{Dashboard, DashboardEvent};
+use crate::db;
 use crate::panels::test::TestPanel;
 use crate::recent_projects::RecentProjects;
 
@@ -13,6 +15,7 @@ pub(crate) struct Fabrica {
     dashboard: Entity<Dashboard>,
     recent_projects: Entity<RecentProjects>,
     project_open: bool,
+    db_pool: Option<SqlitePool>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -30,12 +33,8 @@ impl Fabrica {
             dock_area.set_locked(true, window, cx);
         });
 
-        let data_dir = std::env::var("HOME")
-            .map(|h| PathBuf::from(h).join(".local/share/fabrica"))
-            .unwrap_or_else(|_| PathBuf::from(".fabrica"));
-        let recent_path = data_dir.join("recent.json");
         let recent_projects = cx.new(|_cx| {
-            let mut rp = RecentProjects::load(&recent_path);
+            let mut rp = RecentProjects::load();
             rp.prune();
             rp
         });
@@ -74,6 +73,7 @@ impl Fabrica {
             dashboard,
             recent_projects,
             project_open: false,
+            db_pool: None,
             _subscriptions: vec![subscription],
         }
     }
@@ -87,9 +87,21 @@ impl Fabrica {
         });
         self.project_open = true;
         cx.notify();
+        cx.spawn(async move |this, cx| match db::init_db(&path).await {
+            Ok(pool) => {
+                let _ = this.update(cx, |fabrica, _cx| {
+                    fabrica.db_pool = Some(pool);
+                });
+            }
+            Err(e) => {
+                eprintln!("Warning: DB init failed: {}", e);
+            }
+        })
+        .detach();
     }
 
     pub(crate) fn close_project(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.db_pool = None;
         self.project_open = false;
         self.dashboard.update(cx, |_, _| {});
         window.focus(&self.dashboard.read(cx).focus_handle(cx));
