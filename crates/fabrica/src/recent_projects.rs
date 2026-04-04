@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::recent_projects_list::RecentProject;
+use crate::recent_projects_list::{RecentProject, RecentProjectsList};
 use crate::time_utils::now_iso;
 use serde::{Deserialize, Serialize};
 
@@ -66,8 +66,7 @@ impl RecentProjects {
         let file_data = RecentProjectsFile {
             recent_projects: self.projects.clone(),
         };
-        let json = serde_json::to_string_pretty(&file_data)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let json = serde_json::to_string_pretty(&file_data).map_err(std::io::Error::other)?;
 
         if let Some(parent) = self.file_path.parent() {
             fs::create_dir_all(parent)?;
@@ -84,25 +83,29 @@ impl RecentProjects {
         if !path.exists() || !path.is_dir() {
             return;
         }
-        self.projects.retain(|p| p.path != path);
-        self.projects.insert(
-            0,
-            RecentProject {
-                path: path.clone(),
-                last_opened: now_iso(),
-            },
-        );
-        self.projects.truncate(5);
+        let mut list = RecentProjectsList {
+            projects: std::mem::take(&mut self.projects),
+        };
+        list.add(path, now_iso());
+        self.projects = list.projects;
         let _ = self.save();
     }
 
     pub fn remove(&mut self, path: &Path) {
-        self.projects.retain(|p| p.path != path);
+        let mut list = RecentProjectsList {
+            projects: std::mem::take(&mut self.projects),
+        };
+        list.remove(path);
+        self.projects = list.projects;
         let _ = self.save();
     }
 
     pub fn prune(&mut self) {
-        self.projects.retain(|p| p.path.exists() && p.path.is_dir());
+        let mut list = RecentProjectsList {
+            projects: std::mem::take(&mut self.projects),
+        };
+        list.prune(|p| p.exists() && p.is_dir());
+        self.projects = list.projects;
         let _ = self.save();
     }
 }
@@ -226,62 +229,6 @@ mod tests {
     }
 
     #[test]
-    fn test_add_existing_project_dedup() {
-        let dir = std::env::temp_dir().join("fabrica_test_add_dedup");
-        let _ = fs::remove_dir_all(&dir);
-        let _ = fs::create_dir_all(&dir);
-        let dir_a = dir.join("project_a");
-        let dir_b = dir.join("project_b");
-        let _ = fs::create_dir_all(&dir_a);
-        let _ = fs::create_dir_all(&dir_b);
-        let file_path = dir.join("recent.json");
-
-        let mut rp = RecentProjects::default_with_path(file_path);
-        rp.add(&dir_a);
-        rp.add(&dir_b);
-
-        assert_eq!(rp.projects.len(), 2);
-        assert_eq!(rp.projects[0].path, dir_b);
-        assert_eq!(rp.projects[1].path, dir_a);
-
-        let ts_before = rp.projects[1].last_opened.clone();
-        rp.add(&dir_a);
-
-        assert_eq!(rp.projects.len(), 2);
-        assert_eq!(rp.projects[0].path, dir_a);
-        assert_eq!(rp.projects[1].path, dir_b);
-        assert!(rp.projects[0].last_opened >= ts_before);
-
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn test_truncation_at_five() {
-        let dir = std::env::temp_dir().join("fabrica_test_truncation");
-        let _ = fs::remove_dir_all(&dir);
-        let _ = fs::create_dir_all(&dir);
-        let file_path = dir.join("recent.json");
-
-        let mut rp = RecentProjects::default_with_path(file_path);
-        let mut project_dirs = Vec::new();
-        for i in 0..6 {
-            let p = dir.join(format!("project_{}", i));
-            let _ = fs::create_dir_all(&p);
-            project_dirs.push(p);
-        }
-
-        for p in &project_dirs {
-            rp.add(p);
-        }
-
-        assert_eq!(rp.projects.len(), 5);
-        assert_eq!(rp.projects[0].path, project_dirs[5]);
-        assert_eq!(rp.projects[1].path, project_dirs[4]);
-
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
     fn test_remove_project() {
         let dir = std::env::temp_dir().join("fabrica_test_remove");
         let _ = fs::remove_dir_all(&dir);
@@ -334,6 +281,94 @@ mod tests {
 
         assert_eq!(rp.projects.len(), 1);
         assert_eq!(rp.projects[0].path, real_dir);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_add_persists_to_disk() {
+        let dir = std::env::temp_dir().join("fabrica_test_add_persist");
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::create_dir_all(&dir);
+        let real_dir = dir.join("project_x");
+        let _ = fs::create_dir_all(&real_dir);
+        let file_path = dir.join("recent.json");
+
+        let mut rp = RecentProjects::default_with_path(file_path.clone());
+        rp.add(&real_dir);
+
+        let loaded = RecentProjects::load(&file_path);
+        assert_eq!(loaded.projects.len(), 1);
+        assert_eq!(loaded.projects[0].path, real_dir);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_remove_persists_to_disk() {
+        let dir = std::env::temp_dir().join("fabrica_test_remove_persist");
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::create_dir_all(&dir);
+        let dir_a = dir.join("project_a");
+        let dir_b = dir.join("project_b");
+        let _ = fs::create_dir_all(&dir_a);
+        let _ = fs::create_dir_all(&dir_b);
+        let file_path = dir.join("recent.json");
+
+        let mut rp = RecentProjects::default_with_path(file_path.clone());
+        rp.add(&dir_a);
+        rp.add(&dir_b);
+        rp.remove(&dir_a);
+
+        let loaded = RecentProjects::load(&file_path);
+        assert_eq!(loaded.projects.len(), 1);
+        assert_eq!(loaded.projects[0].path, dir_b);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_prune_persists_to_disk() {
+        let dir = std::env::temp_dir().join("fabrica_test_prune_persist");
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::create_dir_all(&dir);
+        let real_dir = dir.join("real_project");
+        let _ = fs::create_dir_all(&real_dir);
+        let fake_path = dir.join("does_not_exist");
+        let file_path = dir.join("recent.json");
+
+        let mut rp = RecentProjects::default_with_path(file_path.clone());
+        rp.projects.push(RecentProject {
+            path: real_dir.clone(),
+            last_opened: "2025-01-01T00:00:00Z".to_string(),
+        });
+        rp.projects.push(RecentProject {
+            path: fake_path,
+            last_opened: "2025-01-01T00:00:00Z".to_string(),
+        });
+        rp.save().unwrap();
+        rp.prune();
+
+        let loaded = RecentProjects::load(&file_path);
+        assert_eq!(loaded.projects.len(), 1);
+        assert_eq!(loaded.projects[0].path, real_dir);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_add_rejects_nonexistent_path() {
+        let dir = std::env::temp_dir().join("fabrica_test_reject_nonexistent");
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::create_dir_all(&dir);
+        let fake_path = dir.join("no_such_dir");
+        let file_path = dir.join("recent.json");
+
+        let mut rp = RecentProjects::default_with_path(file_path.clone());
+        rp.add(&fake_path);
+
+        assert!(rp.projects.is_empty());
+        assert!(!file_path.exists());
 
         let _ = fs::remove_dir_all(&dir);
     }

@@ -47,6 +47,7 @@ pub fn format_relative_time(last_opened: &str) -> String {
 }
 
 /// Parses an ISO 8601 / RFC 3339 timestamp string into an `OffsetDateTime`.
+#[allow(dead_code)]
 pub(crate) fn parse_iso(iso_str: &str) -> Option<OffsetDateTime> {
     OffsetDateTime::parse(iso_str, &time::format_description::well_known::Rfc3339).ok()
 }
