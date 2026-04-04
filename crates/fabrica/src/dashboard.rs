@@ -34,7 +34,7 @@ impl Dashboard {
     pub(crate) fn open_focused(&mut self, cx: &mut Context<Self>) {
         if let Some(i) = self.focused_index {
             let projects = self.recent_projects.read(cx);
-            if let Some(entry) = projects.projects.get(i) {
+            if let Some(entry) = projects.list().get(i) {
                 cx.emit(DashboardEvent::OpenProject {
                     path: entry.path.clone(),
                 });
@@ -47,16 +47,11 @@ impl Dashboard {
             let path = self
                 .recent_projects
                 .read(cx)
-                .projects
+                .list()
                 .get(i)
                 .map(|p| p.path.clone());
             if let Some(path) = path {
-                let new_len = self
-                    .recent_projects
-                    .read(cx)
-                    .projects
-                    .len()
-                    .saturating_sub(1);
+                let new_len = self.recent_projects.read(cx).list().len().saturating_sub(1);
                 if new_len == 0 {
                     self.focused_index = None;
                 } else if i >= new_len {
@@ -74,7 +69,7 @@ impl Dashboard {
 
     fn render_left_column(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
-        let projects = &self.recent_projects.read(cx).projects;
+        let projects = &self.recent_projects.read(cx).list();
         let radius = theme.radius;
 
         let mut col = v_flex()
@@ -121,7 +116,7 @@ impl Dashboard {
                     .rounded(radius)
                     .cursor_pointer()
                     .on_click(cx.listener(move |this, _event, _window, cx| {
-                        let path = this.recent_projects.read(cx).projects[i].path.clone();
+                        let path = this.recent_projects.read(cx).list()[i].path.clone();
                         cx.emit(DashboardEvent::OpenProject { path });
                     }))
                     .child(
@@ -214,7 +209,7 @@ impl Dashboard {
 
     fn render_telemetry(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
-        let projects = &self.recent_projects.read(cx).projects;
+        let projects = &self.recent_projects.read(cx).list();
 
         if projects.is_empty() {
             div()
@@ -269,7 +264,7 @@ impl Render for Dashboard {
             .justify_center()
             .bg(theme.colors.background)
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, _window, cx| {
-                let len = this.recent_projects.read(cx).projects.len();
+                let len = this.recent_projects.read(cx).list().len();
                 match event.keystroke.key.as_ref() {
                     "j" | "down" => {
                         if len == 0 {
