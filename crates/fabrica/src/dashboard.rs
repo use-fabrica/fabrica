@@ -1,5 +1,6 @@
 use gpui::*;
-use ui::{ActiveTheme, Styled, h_flex, v_flex};
+use ui::tokens::Spacing;
+use ui::{ActiveTheme, Button, ButtonVariants, Styled, h_flex, v_flex};
 
 use crate::app::Fabrica;
 use crate::recent_projects::{RecentProjects, format_relative_time};
@@ -36,20 +37,21 @@ impl Dashboard {
             multiple: false,
             prompt: Some("Select Project Folder".into()),
         });
+
         cx.spawn_in(window, async move |this_weak, cx| {
-            if let Ok(Ok(Some(paths))) = rx.await {
-                if let Some(path) = paths.first() {
-                    let path = path.clone();
-                    let _ = cx.update(|window, cx| {
-                        let _ = this_weak.update(cx, |this, cx| {
-                            if let Some(fabrica) = this.fabrica.as_ref() {
-                                let _ = fabrica.update(cx, |fabrica, cx| {
-                                    fabrica.open_project(path, window, cx);
-                                });
-                            }
-                        });
+            if let Ok(Ok(Some(paths))) = rx.await
+                && let Some(path) = paths.first()
+            {
+                let path = path.clone();
+                let _ = cx.update(|window, cx| {
+                    let _ = this_weak.update(cx, |this, cx| {
+                        if let Some(fabrica) = this.fabrica.as_ref() {
+                            let _ = fabrica.update(cx, |fabrica, cx| {
+                                fabrica.open_project(path, window, cx);
+                            });
+                        }
                     });
-                }
+                });
             }
         })
         .detach();
@@ -58,10 +60,11 @@ impl Dashboard {
     fn render_left_column(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let projects = &self.recent_projects.read(cx).projects;
+        let radius = theme.radius;
 
         let mut col = v_flex()
-            .flex_1()
-            .p(px(24.))
+            .w(relative(0.65))
+            .p(Spacing::px_6())
             .child(
                 div()
                     .text_xl()
@@ -79,13 +82,13 @@ impl Dashboard {
         if projects.is_empty() {
             col = col.child(
                 div()
-                    .mt(px(24.))
+                    .mt(Spacing::px_6())
                     .text_sm()
                     .text_color(theme.colors.muted_foreground)
                     .child("No projects yet"),
             );
         } else {
-            let mut list = v_flex().mt(px(24.)).gap(px(2.));
+            let mut list = v_flex().mt(Spacing::px_6()).gap(Spacing::px_0_5());
             for (i, entry) in projects.iter().enumerate() {
                 let name = entry
                     .path
@@ -98,9 +101,9 @@ impl Dashboard {
 
                 let mut row = h_flex()
                     .id(ElementId::Name(format!("project-{i}").into()))
-                    .px(px(8.))
-                    .py(px(4.))
-                    .rounded(px(4.))
+                    .px(Spacing::px_2())
+                    .py(Spacing::px_1())
+                    .rounded(radius)
                     .cursor_pointer()
                     .on_click(cx.listener(move |this, _event, window, cx| {
                         let path = this.recent_projects.read(cx).projects[i].path.clone();
@@ -118,7 +121,7 @@ impl Dashboard {
                     )
                     .child(
                         div()
-                            .ml(px(8.))
+                            .ml(Spacing::px_2())
                             .text_sm()
                             .text_color(theme.colors.muted_foreground)
                             .child(rel_time),
@@ -137,17 +140,10 @@ impl Dashboard {
         }
 
         col = col.child(
-            div()
-                .id("open-project-btn")
-                .mt(px(16.))
-                .px(px(12.))
-                .py(px(8.))
-                .rounded(px(4.))
-                .cursor_pointer()
-                .bg(theme.colors.primary)
-                .text_color(theme.colors.primary_foreground)
-                .text_sm()
-                .child("Open Project")
+            Button::new("open-project-btn")
+                .label("Open Project")
+                .primary()
+                .mt(Spacing::px_4())
                 .on_click(cx.listener(move |this, _event, window, cx| {
                     this.open_folder_picker(window, cx);
                 })),
@@ -159,8 +155,8 @@ impl Dashboard {
     fn render_right_column(&self, cx: &mut Context<Self>) -> impl IntoElement {
         v_flex()
             .w(px(320.))
-            .p(px(24.))
-            .gap(px(24.))
+            .p(Spacing::px_6())
+            .gap(Spacing::px_6())
             .child(Self::render_shortcuts(cx))
             .child(self.render_telemetry(cx))
     }
@@ -175,7 +171,7 @@ impl Dashboard {
             ("Ctrl+Q", "Quit"),
         ];
 
-        let mut container = v_flex().gap(px(12.)).child(
+        let mut container = v_flex().gap(Spacing::px_3()).child(
             div()
                 .text_sm()
                 .font_weight(FontWeight::SEMIBOLD)
@@ -186,7 +182,7 @@ impl Dashboard {
         for (key, desc) in shortcuts {
             container = container.child(
                 h_flex()
-                    .gap(px(8.))
+                    .gap(Spacing::px_2())
                     .child(
                         div()
                             .text_sm()
@@ -230,7 +226,7 @@ impl Dashboard {
             let last_rel = format_relative_time(&projects[0].last_opened);
 
             v_flex()
-                .gap(px(4.))
+                .gap(Spacing::px_1())
                 .child(
                     div()
                         .text_sm()
@@ -256,6 +252,10 @@ impl Render for Dashboard {
             .track_focus(&self.focus_handle)
             .tab_index(0)
             .size_full()
+            .flex()
+            .flex_col()
+            .items_center()
+            .justify_center()
             .bg(theme.colors.background)
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, _window, cx| {
                 let len = this.recent_projects.read(cx).projects.len();
@@ -327,7 +327,9 @@ impl Render for Dashboard {
             }))
             .child(
                 h_flex()
-                    .size_full()
+                    .max_w(px(1024.))
+                    .mx_auto()
+                    .w_full()
                     .child(self.render_left_column(cx))
                     .child(self.render_right_column(cx)),
             )

@@ -26,6 +26,12 @@ impl Spacing {
     pub fn px_4() -> Pixels {
         px(16.)
     }
+    pub fn px_5() -> Pixels {
+        px(20.)
+    }
+    pub fn px_6() -> Pixels {
+        px(24.)
+    }
 }
 
 pub struct Sizes;
