@@ -1,5 +1,5 @@
 {
-  description = "Fabrica — GPUI application";
+  description = "Fabrica — Coding agent harness (wgpu + glyphon + taffy)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -18,30 +18,22 @@
         pkgs = nixpkgs.legacyPackages.${system};
 
         libs = with pkgs; [
-          # X11
+          # Windowing (winit)
           libX11
           libxcb
           libXcursor
           libXrandr
           libXi
-
-          # Keyboard
           libxkbcommon
-
-          # Wayland
           wayland
 
-          # Graphics (Vulkan + OpenGL)
+          # GPU rendering (wgpu)
           vulkan-loader
           libGL
 
-          # Fonts
+          # Text rendering (glyphon → cosmic-text)
           fontconfig
           freetype
-
-          # Crypto / Network
-          openssl
-          zlib
         ];
       in
       {
