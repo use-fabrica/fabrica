@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = ["crates/fabrica","crates/gui", "crates/runtime"]
+
+[workspace.package]
+publish = false
+edition = "2024"
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "allow" }
