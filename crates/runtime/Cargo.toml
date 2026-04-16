@@ -5,7 +5,9 @@ publish = false
 edition.workspace = true
 
 [dependencies]
-# async_task = { version = ""}
+async-task = { version = "4.7.1" }
+smol = "2.0.2"
+futures-lite = "2.6.1"
 
 [lints]
 workspace = true
