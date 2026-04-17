@@ -51,4 +51,21 @@ mod tests {
         let result = smol::block_on(task);
         assert_eq!(result, 42);
     }
+
+    #[test]
+    fn foreground_handles_async_continuations() {
+        let exec = ForegroundExecutor::new();
+
+        let task = exec.spawn(async {
+            futures_lite::future::yield_now().await;
+            42
+        });
+
+        while !task.is_finished() {
+            exec.tick();
+        }
+
+        let result = smol::block_on(task);
+        assert_eq!(result, 42);
+    }
 }
