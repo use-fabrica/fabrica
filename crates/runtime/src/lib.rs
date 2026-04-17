@@ -30,3 +30,29 @@ impl<T> Future for Task<T> {
         Pin::new(&mut self.inner).poll(cx)
     }
 }
+
+#[test]
+fn background_to_foreground_bridge() {
+    let fg = ForegroundExecutor::new();
+    let bg = BackgroundExecutor::new();
+
+    let task = fg.spawn(async move {
+        // This runs on foreground
+        let bg_result = bg
+            .spawn(async {
+                // This runs on background thread
+                42
+            })
+            .await;
+        // After .await, we should be back on foreground
+        bg_result + 1
+    });
+
+    // Drive foreground until complete
+    while !task.is_finished() {
+        fg.tick();
+    }
+
+    let result = smol::block_on(task);
+    assert_eq!(result, 43);
+}
