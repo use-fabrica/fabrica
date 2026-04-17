@@ -1,6 +1,5 @@
 use std::{
     collections::VecDeque,
-    future::Future,
     sync::{Arc, Mutex},
 };
 
@@ -67,5 +66,26 @@ mod tests {
 
         let result = smol::block_on(task);
         assert_eq!(result, 42);
+    }
+
+    #[test]
+    fn detached_task_runs_to_completion_without_await() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
+
+        let mut exec = ForegroundExecutor::new();
+        let flag = Arc::new(AtomicBool::new(false));
+        let flag_clone = flag.clone();
+
+        let task = exec.spawn(async move {
+            flag_clone.store(true, Ordering::SeqCst);
+        });
+
+        task.detach();
+        exec.tick();
+
+        assert!(flag.load(Ordering::SeqCst));
     }
 }
