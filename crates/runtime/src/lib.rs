@@ -1,5 +1,6 @@
 mod background;
 mod foreground;
+mod priority;
 
 use std::{
     pin::Pin,
@@ -8,6 +9,7 @@ use std::{
 
 pub use background::BackgroundExecutor;
 pub use foreground::ForegroundExecutor;
+pub use priority::Priority;
 
 pub struct Task<T> {
     inner: async_task::Task<T>,
