@@ -1,11 +1,12 @@
+mod background;
 mod foreground;
 
 use std::{
-    future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
 
+pub use background::BackgroundExecutor;
 pub use foreground::ForegroundExecutor;
 
 pub struct Task<T> {
