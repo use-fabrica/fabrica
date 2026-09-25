@@ -4,11 +4,16 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
     {
       nixpkgs,
+      rust-overlay,
       flake-utils,
       ...
     }:
@@ -17,24 +22,33 @@
       let
         pkgs = import nixpkgs {
           inherit system;
+          overlays = [ (import rust-overlay) ];
+        };
+
+        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+          extensions = [
+            "rust-src"
+            "rust-analyzer"
+            "clippy"
+            "rustfmt"
+          ];
         };
       in
       {
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
-            # Go services
-            go_1_27
-            gopls
-            golangci-lint
-            gotools
-            delve
+            rustToolchain
+            cargo-watch
 
             # Git hooks (lefthook.yml)
             lefthook
 
             nodejs_24
             corepack_24
+            curl
+            pkg-config
           ];
+
           shellHook = ''
             export COREPACK_HOME="$PWD/.corepack"
             mkdir -p "$COREPACK_HOME/bin"
