@@ -1,0 +1,52 @@
+{
+  "name": "fabrica",
+  "version": "0.0.0",
+  "description": "",
+  "homepage": "https://github.com/use-fabrica/fabrica#readme",
+  "bugs": {
+    "url": "https://github.com/use-fabrica/fabrica/issues"
+  },
+  "license": "MIT",
+  "author": "Sudarsh Jain <sudarshjain1010@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/use-fabrica/fabrica.git"
+  },
+  "bin": {
+    "fabrica": "./dist/cli.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    "./agent": "./dist/agent.mjs",
+    "./config": "./dist/config.mjs",
+    "./tool": "./dist/tool.mjs",
+    "./workflow": "./dist/workflow.mjs",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "dev": "vp pack --watch",
+    "test": "vp test",
+    "check": "vp check",
+    "prepublishOnly": "vp run build"
+  },
+  "dependencies": {
+    "@standard-schema/spec": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "bumpp": "^11.1.0",
+    "citty": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "inlinedDependencies": {
+    "citty": "0.2.2"
+  }
+}
