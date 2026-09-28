@@ -834,19 +834,60 @@ This gives compile-time validation and autocomplete.
 
 ### The schema bridge
 
-Zod schemas live in TypeScript. The engine needs schemas at
-registration and scheduling time (input validation on enqueue, tool
-definitions for the LLM).
+Schemas live in TypeScript, authored in any library implementing
+[Standard Schema](https://standardschema.dev) — zod (3.24+), valibot,
+arktype, effect, ... The examples in this document use zod for
+illustration only. The engine needs schemas at registration and
+scheduling time (input validation on enqueue, tool definitions for the
+LLM).
+
+User-facing contract — either a Standard Schema, or an explicit
+adapter:
+
+```ts
+// Any Standard Schema implementation
+defineAgent({ input: z.object({ ... }) });
+
+// Explicit adapter: the escape hatch for typia (which needs its own
+// compile transform), MCP-imported tools, and hand-written schemas
+defineAgent({
+  input: {
+    validate: (value) => ...,        // Standard Schema Result shape
+    jsonSchema: () => ({ ... }),     // JSON Schema, draft 2020-12
+  },
+});
+```
 
 Bridge:
 
-1. At registration, the worker/CLI converts each zod schema to JSON
-   Schema (`zod-to-json-schema`) and emits `.fabrica/generated/schemas.json`.
-2. The engine validates inputs with JSON Schema at enqueue time.
-3. Workers validate with zod at execution time.
-4. Each definition carries a schema hash. If a worker's hash differs
-   from the engine-registered hash for the same version, registration
-   fails. No silent drift.
+1. At registration, the worker/CLI reduces every schema to a triple
+   `{ jsonSchema, validate, hash }` and emits
+   `.fabrica/generated/schemas.json`. `validate` comes from the
+   Standard Schema interface (or the adapter). `jsonSchema` is
+   extracted by feature-detecting the schema object (`toJSONSchema`
+   on zod 4, `toJsonSchema` on arktype, ...) or read from the
+   adapter. A compliant schema with no extractor and no adapter
+   fails registration with a pointer to the adapter escape hatch.
+2. The engine validates inputs with JSON Schema (one pinned draft,
+   2020-12) at enqueue time.
+3. Workers validate with the original schema at execution time.
+4. Each definition carries `hash = sha256(canonicalized jsonSchema)`
+   — canonical form (stable stringify) over the single pinned draft,
+   so the Rust engine and the TS extractor agree byte-for-byte. If a
+   worker's hash differs from the engine-registered hash for the same
+   version, registration fails. No silent drift.
+
+Rules:
+
+- JSON Schema describes the input side only. Schemas whose output
+  differs from their input (transforms, coercions) are allowed: the
+  engine validates input at enqueue; the worker's `validate` may
+  transform.
+- Schemas with no JSON Schema representation (e.g. `z.date()`) fail
+  at registration, not at first enqueue.
+- `fabrica` has no required schema peer dependency.
+  `@standard-schema/spec` (types only) is a regular dependency; zod,
+  valibot, and arktype are optional peers used by the extractors.
 
 ---
 
@@ -964,7 +1005,7 @@ Durable execution plus code changes is the classic footgun. Rules:
   new, or an explicit major version bump that fails old runs visibly
   into the DLQ.
 - Input/output schema evolution: journaled entries validate against
-  their pinned schema. A zod change that breaks replay fails the run
+  their pinned schema. A schema change that breaks replay fails the run
   loudly at resume, with a precise error naming the step and schema
   diff.
 - Retention: old definition bundles are kept as long as any run
@@ -1016,7 +1057,7 @@ primitive, not just a Redis line item.
 
 - A **session** is durable conversation state keyed by session ID.
 - Runs reference a session: `fabrica.run("support-triage", { input,
-  sessionId })`.
+sessionId })`.
 - Session stores rolling transcript, summary, and TTL.
 - Session actors are regular actors whose state is the conversation;
   they are GC'd on session TTL, not run TTL.
@@ -1528,7 +1569,7 @@ Build:
 - Tool loader.
 - Skill loader.
 - Type generation.
-- Zod → JSON Schema bridge (section 13).
+- Standard Schema → JSON Schema bridge (section 13).
 
 Deliver:
 
@@ -1554,7 +1595,7 @@ Build:
 - Long-lived worker, bidi stream to engine.
 - ConnectRPC client.
 - Tool execution.
-- Zod validation.
+- Standard Schema validation (section 13).
 - Streaming and cancellation (section 17).
 - Error reporting.
 

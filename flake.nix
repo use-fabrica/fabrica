@@ -1,5 +1,5 @@
 {
-  description = "fabrica dev environment";
+  description = "fabrica dev environment: Rust, Node LTS, pnpm via Corepack, Vite+ (vp)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -56,6 +56,15 @@
             export PATH="$COREPACK_HOME/bin:$PATH"
 
             corepack prepare pnpm@12 --activate >/dev/null 2>&1 || true
+
+            export VP_HOME="$PWD/.vp"
+            if [ ! -x "$VP_HOME/bin/vp" ]; then
+              echo "installing vp (Vite+) into .vp/ ..."
+              curl -fsSL https://vite.plus | HOME="$(mktemp -d)" VP_HOME="$VP_HOME" VP_NODE_MANAGER=no bash
+              "$VP_HOME/bin/vp" env off >/dev/null 2>&1 || true
+            fi
+
+            export PATH="$VP_HOME/bin:$PATH"
 
             echo "node $(node --version) · pnpm $(pnpm --version 2>/dev/null || echo 'n/a') · vp $(vp --version 2>/dev/null || echo 'n/a') · $(rustc --version)"
           '';
